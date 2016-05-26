@@ -65,7 +65,7 @@ function alumni_latitude_update_table($city, &$context) {
  */
 function alumni_latitude_batch_finished($success, $results, $operations) {
   if($success) {
-	watchdog(t('Alumni Latitude'), 'Alumni Table updated Successfully'), WATCHDOG_INFO);
+	watchdog(t('Alumni Latitude'), 'Alumni Table updated Successfully', WATCHDOG_INFO);
     $message = t('<i>Total @count items successfully processed:</i>', array('@count' => count($results)));
 	$message .= theme('item_list', array('items' => $results));
     drupal_set_message($message);
