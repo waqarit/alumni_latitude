@@ -1,0 +1,85 @@
+<?php
+/**
+ * Implements hook_menu
+ */
+function alumni_latitude_menu() {
+  $items = array();
+  $items['alumni_latitude'] = array(
+    'title' => 'Alumni Table Batch',
+    'description' => 'Update Alumni table In A Batch Process.',
+    'page callback' => 'alumni_latitude_batch',
+    'access arguments' => array('administer content'),
+    'type' => MENU_NORMAL_ITEM,
+  );
+  return $items;
+}
+
+/**
+ * Implements hook_form_submit
+ */
+function alumni_latitude_batch() {
+
+  // Create operations array.
+	$cities = db_query("SELECT `CITY` FROM {capi_alumni} WHERE `CITY` != '' ")->fetchCol();
+		
+		for($i=1; $i <= count($cities); $i++){
+			$operations[] = array('alumni_latitude_update_table',array($cities[$i]));
+		}
+	
+
+  // Start Batch of node creation.
+  $batch = array(
+    'title' => t('Updating Alumni Table Finally.'),
+    'operations' => $operations,
+    'finished' => 'alumni_latitude_batch_finished',
+    'init_message' => t('Updating Is Starting.'),
+    'progress_message' => t('Processed @current out of @total.'),
+    'error_message' => t('Updation of Alumni table has encountered an error.'),    
+  );
+  
+  batch_set($batch);  // Set the batch operation.
+  batch_process('admin/content'); // page to return to after complete
+
+}
+
+/**
+ * Helper function to create nodes in batch process.
+ * @param type $number_of_nodes
+ */
+function alumni_latitude_update_table($city, &$context) {
+		
+		$point = geocoder('google',$city);
+		db_update('capi_alumni')
+					->fields(array(
+						'LATITUDE' => $point->coords[1],
+						'LONGITUDE' => $point->coords[0],
+					))
+					->condition('CITY', $city, '=')
+					->execute();
+			
+		$context['results'][] = "<b>Updated LATITUDE/LONGITUDE of : </b> ".check_plain($city);
+		
+}
+/**
+ * Callback : Called when batch process is finished.
+ */
+function alumni_latitude_batch_finished($success, $results, $operations) {
+  if($success) {
+	watchdog(t('Alumni Latitude'), 'Alumni Table updated Successfully'), WATCHDOG_INFO);
+    $message = t('<i>Total @count items successfully processed:</i>', array('@count' => count($results)));
+	$message .= theme('item_list', array('items' => $results));
+    drupal_set_message($message);
+
+	//drupal_set_message('Nodes Created Successfully.');
+  }
+  else {
+    $error_operation = reset($operations);
+    $message = t('An error occurred while processing %error_operation with arguments: @arguments', array(
+      '%error_operation' => $error_operation[0],
+      '@arguments' => print_r($error_operation[1], TRUE)
+    ));
+	watchdog(t('Alumni Nodes'), 'An error occurred while processing %error_operation with arguments: @arguments', array('%error_operation' => $error_operation[0], '@arguments' => print_r($error_operation[1], TRUE)), WATCHDOG_ERROR);
+    
+    drupal_set_message($message, 'error');
+  }
+}
